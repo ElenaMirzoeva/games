@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Клубочки — Уютная игра</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #E8F4F8 0%, #FDF0E6 50%, #F5E6D3 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            margin: 0 auto;
+            position: relative;
+            background: linear-gradient(180deg, 
+                #B8D4E3 0%,      /* небо */
+                #D4E8F0 30%,     /* светлое небо */
+                #E8F0D8 60%,     /* холмы */
+                #D8E8C8 100%     /* трава */
+            );
+            overflow: hidden;
+        }
+
+        /* Облака на фоне */
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50px;
+            filter: blur(2px);
+        }
+
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: inherit;
+            border-radius: 50%;
+        }
+
+        .cloud-1 {
+            width: 80px;
+            height: 30px;
+            top: 5%;
+            left: 10%;
+            animation: floatCloud 20s ease-in-out infinite;
+        }
+
+        .cloud-2 {
+            width: 100px;
+            height: 35px;
+            top: 8%;
+            right: 15%;
+            animation: floatCloud 25s ease-in-out infinite reverse;
+        }
+
+        .cloud-3 {
+            width: 60px;
+            height: 25px;
+            top: 15%;
+            left: 50%;
+            animation: floatCloud 18s ease-in-out infinite;
+        }
+
+        @keyframes floatCloud {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(20px); }
+        }
+
+        /* UI Верх */
+        #ui-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #level-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #level-num {
+            font-weight: 600;
+            color: #7B9E89;
+            font-size: 14px;
+        }
+
+        /* Цели уровня */
+        #goals {
+            display: flex;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .goal-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+        }
+
+        .goal-icon {
+            font-size: 18px;
+        }
+
+        .goal-count {
+            font-weight: 600;
+            color: #7B9E89;
+        }
+
+        .goal-item.completed .goal-count {
+            color: #9DC08B;
+        }
+
+        /* Кнопка паузы */
+        #pause-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.85);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        #pause-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Игровое поле */
+        #game-field {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 420px;
+        }
+
+        #game-canvas {
+            display: block;
+            width: 100%;
+            touch-action: none;
+        }
+
+        /* Нижняя панель с овечкой */
+        #ui-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 20px;
+            pointer-events: none;
+        }
+
+        /* Овечка */
+        #sheep-container {
+            position: relative;
+            width: 100px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #sheep {
+            font-size: 60px;
+            animation: sheepIdle 2s ease-in-out infinite;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+            transition: transform 0.3s;
+        }
+
+        @keyframes sheepIdle {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-3px) rotate(2deg); }
+        }
+
+        #sheep.happy {
+            animation: sheepHappy 0.5s ease;
+        }
+
+        @keyframes sheepHappy {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        #sheep.spin {
+            animation: sheepSpin 0.8s ease;
+        }
+
+        @keyframes sheepSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #sheep.clap {
+            animation: sheepClap 0.6s ease;
+        }
+
+        @keyframes sheepClap {
+            0%, 100% { transform: scale(1); }
+            25%, 75% { transform: scale(1.15); }
+            50% { transform: scale(0.95); }
+        }
+
+        /* Превью клубков */
+        #yarn-preview {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .preview-yarn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 -3px 6px rgba(0,0,0,0.1), inset 0 3px 6px rgba(255,255,255,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-yarn::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 12px;
+            height: 8px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            transform: rotate(-30deg);
+        }
+
+        #next-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Линия прицеливания */
+        #aim-line {
+            position: absolute;
+            bottom: 130px;
+            left: 50%;
+            width: 3px;
+            height: 0;
+            background: linear-gradient(to top, rgba(255,255,255,0.8), transparent);
+            transform-origin: bottom center;
+            pointer-events: none;
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+
+        /* Текущий клубок для выстрела */
+        #current-yarn {
+            position: absolute;
+            bottom: 95px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2), inset 0 -4px 8px rgba(0,0,0,0.1), inset 0 4px 8px rgba(255,255,255,0.4);
+            transition: transform 0.3s, background 0.2s;
+            overflow: hidden;
+        }
+
+        #current-yarn::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 16px;
+            height: 10px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            transform: rotate(-30deg);
+        }
+
+        /* Текстура ниток на клубке */
+        #current-yarn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 3px,
+                rgba(0,0,0,0.03) 3px,
+                rgba(0,0,0,0.03) 6px
+            );
+        }
+
+        /* Модальные окна */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: linear-gradient(180deg, #FFF9F5 0%, #FFF 100%);
+            padding: 32px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal h2 {
+            font-size: 24px;
+            color: #7B9E89;
+            margin-bottom: 16px;
+        }
+
+        .modal p {
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .modal-btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 0 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #9DC08B 0%, #7B9E89 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(123, 158, 137, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(123, 158, 137, 0.5);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        /* Кнопка закрытия модалки */
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 50%;
+            font-size: 16px;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        /* Модалка описания уровня */
+        .level-intro {
+            max-width: 360px;
+            position: relative;
+        }
+
+        .level-intro-header {
+            margin-bottom: 8px;
+        }
+        
+        .level-intro-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .level-intro-num {
+            background: linear-gradient(135deg, #9DC08B 0%, #7B9E89 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .level-intro-goals {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .intro-goal {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: #f8f8f8;
+            padding: 12px 20px;
+            border-radius: 12px;
+        }
+
+        .intro-goal-icon {
+            font-size: 28px;
+        }
+
+        .intro-goal-text {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .level-intro-tip {
+            background: linear-gradient(135deg, #FFF9E6 0%, #FFF5D6 100%);
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #8B7355;
+            line-height: 1.5;
+        }
+
+        .level-intro-tip:empty {
+            display: none;
+        }
+
+        .level-intro-new {
+            margin-bottom: 20px;
+        }
+
+        .level-intro-new:empty {
+            display: none;
+        }
+
+        .new-mechanic {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+
+        .new-mechanic:last-child {
+            margin-bottom: 0;
+        }
+
+        .new-mechanic-icon {
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+
+        .new-mechanic-text {
+            text-align: left;
+        }
+
+        .new-mechanic-title {
+            font-weight: 600;
+            color: #5D8A66;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .new-mechanic-desc {
+            font-size: 12px;
+            color: #6B8E6B;
+            line-height: 1.4;
+        }
+
+        /* Эффекты частиц */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            animation: particleFade 1s ease-out forwards;
+        }
+
+        @keyframes particleFade {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) scale(0);
+            }
+        }
+
+        /* Пыльца / волокна */
+        .fiber {
+            position: absolute;
+            width: 3px;
+            height: 8px;
+            border-radius: 2px;
+            pointer-events: none;
+            animation: fiberFloat 1.2s ease-out forwards;
+        }
+
+        @keyframes fiberFloat {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) rotate(var(--rot));
+            }
+        }
+
+        /* Холмики декоративные */
+        .hill {
+            position: absolute;
+            bottom: 0;
+            border-radius: 50% 50% 0 0;
+        }
+
+        .hill-1 {
+            width: 200px;
+            height: 80px;
+            left: -50px;
+            background: linear-gradient(180deg, #C8E6C9 0%, #A5D6A7 100%);
+        }
+
+        .hill-2 {
+            width: 250px;
+            height: 100px;
+            right: -80px;
+            background: linear-gradient(180deg, #C5E1A5 0%, #AED581 100%);
+        }
+
+        /* Цветочки */
+        .flower {
+            position: absolute;
+            font-size: 16px;
+            animation: flowerSway 3s ease-in-out infinite;
+        }
+
+        @keyframes flowerSway {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+
+        /* Экран уровней */
+        #level-select {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #E8F4F8 0%, #FDF0E6 50%, #F5E6D3 100%);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+
+        #level-select.hidden {
+            display: none;
+        }
+
+        #level-select h1 {
+            font-size: 32px;
+            color: #7B9E89;
+            margin-bottom: 8px;
+        }
+
+        #level-select .subtitle {
+            color: #999;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+
+        .levels-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            max-width: 320px;
+        }
+
+        .level-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            border: none;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .level-btn.unlocked {
+            background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
+            color: #7B9E89;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .level-btn.unlocked:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+
+        .level-btn.completed {
+            background: linear-gradient(135deg, #9DC08B 0%, #7B9E89 100%);
+            color: white;
+        }
+
+        .level-btn.locked {
+            background: #ddd;
+            color: #aaa;
+            cursor: not-allowed;
+        }
+
+        .level-btn .stars {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        /* Стартовый экран */
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #E8F4F8 0%, #FDF0E6 50%, #F5E6D3 100%);
+            z-index: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        #start-screen.hidden {
+            display: none;
+        }
+
+        #start-screen .logo {
+            font-size: 80px;
+            margin-bottom: 16px;
+            animation: sheepIdle 2s ease-in-out infinite;
+        }
+
+        #start-screen h1 {
+            font-size: 36px;
+            color: #7B9E89;
+            margin-bottom: 8px;
+        }
+
+        #start-screen .tagline {
+            color: #999;
+            margin-bottom: 48px;
+            font-size: 16px;
+        }
+
+        #start-btn {
+            padding: 18px 64px;
+            font-size: 20px;
+        }
+
+        /* Звёздочки победы */
+        .win-stars {
+            font-size: 40px;
+            margin-bottom: 16px;
+            letter-spacing: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Стартовый экран -->
+<div id="start-screen">
+    <div class="logo">🐑</div>
+    <h1>Клубочки</h1>
+    <p class="tagline">уютная игра для отдыха</p>
+    <button class="modal-btn btn-primary" id="start-btn">Играть</button>
+</div>
+
+<!-- Выбор уровня -->
+<div id="level-select" class="hidden">
+    <h1>Уровни</h1>
+    <p class="subtitle">выбери уровень</p>
+    <div class="levels-grid" id="levels-grid">
+        <!-- Генерируется JS -->
+    </div>
+</div>
+
+<!-- Игровой контейнер -->
+<div id="game-container" style="display: none;">
+    <!-- Облака -->
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+
+    <!-- Холмики -->
+    <div class="hill hill-1"></div>
+    <div class="hill hill-2"></div>
+
+    <!-- Цветочки -->
+    <div class="flower" style="bottom: 60px; left: 20px;">🌸</div>
+    <div class="flower" style="bottom: 45px; left: 60px; animation-delay: -1s;">🌼</div>
+    <div class="flower" style="bottom: 55px; right: 30px; animation-delay: -0.5s;">🌷</div>
+    <div class="flower" style="bottom: 40px; right: 80px; animation-delay: -1.5s;">🌻</div>
+
+    <!-- UI верх -->
+    <div id="ui-top">
+        <div id="level-info">
+            <span id="level-num">Уровень 1</span>
+        </div>
+        <div id="goals">
+            <!-- Генерируется JS -->
+        </div>
+        <button id="pause-btn">⏸️</button>
+    </div>
+
+    <!-- Игровое поле -->
+    <div id="game-field">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- Линия прицеливания -->
+    <div id="aim-line"></div>
+
+    <!-- Текущий клубок -->
+    <div id="current-yarn"></div>
+
+    <!-- UI низ -->
+    <div id="ui-bottom">
+        <div id="sheep-container">
+            <div id="sheep">🐑</div>
+        </div>
+    </div>
+
+    <!-- Превью следующего -->
+    <div id="yarn-preview">
+        <span id="next-label">след.</span>
+        <div class="preview-yarn" id="next-yarn"></div>
+    </div>
+</div>
+
+<!-- Модалка паузы -->
+<div class="modal" id="pause-modal">
+    <div class="modal-content">
+        <h2>Пауза</h2>
+        <p>Отдохни немного 🌿</p>
+        <button class="modal-btn btn-primary" id="resume-btn">Продолжить</button>
+        <button class="modal-btn btn-secondary" id="menu-btn">В меню</button>
+    </div>
+</div>
+
+<!-- Модалка победы -->
+<div class="modal" id="win-modal">
+    <div class="modal-content">
+        <div class="win-stars" id="win-stars">⭐⭐⭐</div>
+        <h2>Отлично!</h2>
+        <p id="win-text">Уровень пройден!</p>
+        <button class="modal-btn btn-primary" id="next-level-btn">Дальше</button>
+        <button class="modal-btn btn-secondary" id="win-menu-btn">Меню</button>
+    </div>
+</div>
+
+<!-- Модалка проигрыша -->
+<div class="modal" id="lose-modal">
+    <div class="modal-content">
+        <h2>Не получилось</h2>
+        <p>Попробуй ещё раз 🌸</p>
+        <button class="modal-btn btn-primary" id="retry-btn">Заново</button>
+        <button class="modal-btn btn-secondary" id="lose-menu-btn">Меню</button>
+    </div>
+</div>
+
+<!-- Модалка описания уровня -->
+<div class="modal" id="level-intro-modal">
+    <div class="modal-content level-intro">
+        <button class="modal-close" id="intro-close-btn">✕</button>
+        <div class="level-intro-header">
+            <span class="level-intro-num" id="intro-level-num">Уровень 1</span>
+        </div>
+        <h2 id="intro-title">Начинаем!</h2>
+        <div class="level-intro-goals" id="intro-goals">
+            <!-- цели уровня -->
+        </div>
+        <div class="level-intro-tip" id="intro-tip">
+            <!-- подсказка -->
+        </div>
+        <div class="level-intro-new" id="intro-new">
+            <!-- новые механики -->
+        </div>
+        <div class="level-intro-buttons">
+            <button class="modal-btn btn-secondary" id="intro-back-btn">Назад</button>
+            <button class="modal-btn btn-primary" id="start-level-btn">Играть!</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// КОНФИГУРАЦИЯ ИГРЫ
+// ============================================
+
+const COLORS = {
+    mint: { fill: '#98D8C8', stroke: '#7BC4B4', emoji: '🧶' },
+    lavender: { fill: '#C9B1FF', stroke: '#B199E8', emoji: '🧶' },
+    peach: { fill: '#FFCBA4', stroke: '#E8B48E', emoji: '🧶' },
+    strawberry: { fill: '#FFB5B5', stroke: '#E89E9E', emoji: '🧶' },
+    sky: { fill: '#A8D8EA', stroke: '#8FC4D6', emoji: '🧶' },
+    cream: { fill: '#FFF5E1', stroke: '#E8DEC8', emoji: '🧶' }
+};
+
+const COLOR_KEYS = Object.keys(COLORS);
+
+const SPECIAL_TYPES = {
+    normal: { emoji: '🧶' },
+    bomb: { emoji: '💫' },       // бомба с бантом
+    rainbow: { emoji: '🌈' },    // радужный
+    ice: { emoji: '❄️' },        // лёд
+    sticky: { emoji: '🌸' },     // липучка/цветок
+    fog: { emoji: '☁️' },        // туман
+    animal: { emoji: '🐰' }      // зверушка внутри
+};
+
+// Описания целей для модалки
+const GOAL_DESCRIPTIONS = {
+    drop: 'Оброни клубки',
+    animal: 'Освободи зверушек',
+    ice: 'Растопи ледяные клубки',
+    bomb: 'Взорви бомбы',
+    sticky: 'Убери цветочки',
+    match: 'Собери клубки',
+    rainbow: 'Используй радужные'
+};
+
+// Описания новых механик
+const MECHANIC_DESCRIPTIONS = {
+    animal: {
+        icon: '🐰',
+        title: 'Зверушки!',
+        desc: 'В некоторых клубках прячутся зверушки. Собери 3+ клубка рядом с ними, чтобы освободить!'
+    },
+    ice: {
+        icon: '❄️',
+        title: 'Ледяные клубки',
+        desc: 'Покрыты льдом — попади дважды ИЛИ оброни их вниз!'
+    },
+    bomb: {
+        icon: '💫',
+        title: 'Бомбы',
+        desc: 'При совпадении взрывают все клубки вокруг себя!'
+    },
+    sticky: {
+        icon: '🌸',
+        title: 'Цветочки-липучки',
+        desc: 'Удерживают клубки от падения. Убери их, чтобы вызвать обвал!'
+    },
+    rainbow: {
+        icon: '🌈',
+        title: 'Радужные клубки',
+        desc: 'Совпадают с любым цветом — используй их с умом!'
+    },
+    fog: {
+        icon: '☁️',
+        title: 'Туманные клубки',
+        desc: 'Скрывают свой цвет. Попади рядом, чтобы рассеять туман'
+    }
+};
+
+// Уровни
+const LEVELS = [
+    // Уровень 1 — базовые цвета, обвалы
+    {
+        colors: ['mint', 'lavender', 'peach'],
+        rows: 5,
+        goals: [{ type: 'drop', count: 10, icon: '⬇️' }],
+        moves: 20,
+        intro: {
+            title: 'Начинаем!',
+            tip: 'Соединяй 3+ клубка одного цвета. Когда группа теряет связь с верхом — она падает!'
+        }
+    },
+    // Уровень 2 — зверушки
+    {
+        colors: ['mint', 'lavender', 'peach', 'strawberry'],
+        rows: 6,
+        specials: [{ type: 'animal', count: 3 }],
+        goals: [{ type: 'animal', count: 3, icon: '🐰' }],
+        moves: 25,
+        intro: {
+            title: 'Спасаем зверушек!',
+            tip: 'Видишь глазки в клубках? Это зверушки! Собери клубки рядом, чтобы их освободить.',
+            newMechanics: ['animal']
+        }
+    },
+    // Уровень 3 — лёд
+    {
+        colors: ['mint', 'lavender', 'sky'],
+        rows: 6,
+        specials: [{ type: 'ice', count: 5 }],
+        goals: [{ type: 'ice', count: 5, icon: '❄️' }],
+        moves: 25,
+        intro: {
+            title: 'Ледяной уровень',
+            tip: 'Ледяные клубки: попади дважды ИЛИ оброни их вниз — при падении лёд разбивается сразу!',
+            newMechanics: ['ice']
+        }
+    },
+    // Уровень 4 — обвалы (много)
+    {
+        colors: ['mint', 'peach', 'cream', 'strawberry'],
+        rows: 7,
+        goals: [{ type: 'drop', count: 25, icon: '⬇️' }],
+        moves: 20,
+        intro: {
+            title: 'Большой обвал!',
+            tip: 'Цель — обрушить как можно больше клубков. Ищи места, где одно совпадение вызовет цепную реакцию!'
+        }
+    },
+    // Уровень 5 — бомбы
+    {
+        colors: ['mint', 'lavender', 'peach'],
+        rows: 6,
+        specials: [{ type: 'bomb', count: 3 }],
+        goals: [{ type: 'bomb', count: 3, icon: '💫' }],
+        moves: 25,
+        intro: {
+            title: 'Бум!',
+            tip: 'Бомбы взрывают всё вокруг при совпадении. Очень полезно!',
+            newMechanics: ['bomb']
+        }
+    },
+    // Уровень 6 — липучки
+    {
+        colors: ['lavender', 'peach', 'sky'],
+        rows: 7,
+        specials: [{ type: 'sticky', count: 4 }],
+        goals: [{ type: 'sticky', count: 4, icon: '🌸' }],
+        moves: 30,
+        intro: {
+            title: 'Цветочки-липучки',
+            tip: 'Цветочки удерживают группы от падения. Убери их, чтобы вызвать обвал!',
+            newMechanics: ['sticky']
+        }
+    },
+    // Уровень 7 — радужные
+    {
+        colors: ['mint', 'lavender', 'peach', 'strawberry'],
+        rows: 6,
+        goals: [{ type: 'drop', count: 30, icon: '⬇️' }],
+        rainbowChance: 0.1,
+        moves: 25,
+        intro: {
+            title: 'Радуга!',
+            tip: 'Иногда будут появляться радужные клубки — они совпадают с любым цветом!',
+            newMechanics: ['rainbow']
+        }
+    },
+    // Уровень 8 — туман
+    {
+        colors: ['mint', 'sky', 'cream'],
+        rows: 7,
+        specials: [{ type: 'fog', count: 6 }],
+        goals: [{ type: 'match', count: 40, icon: '✨' }],
+        moves: 30,
+        intro: {
+            title: 'В тумане',
+            tip: 'Туманные клубки скрывают свой настоящий цвет. Попади рядом, чтобы их раскрыть!',
+            newMechanics: ['fog']
+        }
+    },
+    // Уровень 9 — комбо
+    {
+        colors: ['mint', 'lavender', 'peach', 'strawberry', 'sky'],
+        rows: 8,
+        specials: [{ type: 'ice', count: 3 }, { type: 'sticky', count: 2 }],
+        goals: [
+            { type: 'drop', count: 20, icon: '⬇️' },
+            { type: 'ice', count: 3, icon: '❄️' }
+        ],
+        moves: 35,
+        intro: {
+            title: 'Комбо-уровень!',
+            tip: 'Здесь и лёд, и цветочки. Сначала убери липучки, потом разбей лёд для большого обвала!'
+        }
+    },
+    // Уровень 10 — праздничный, легче
+    {
+        colors: ['mint', 'lavender', 'peach'],
+        rows: 5,
+        specials: [{ type: 'animal', count: 2 }],
+        goals: [{ type: 'animal', count: 2, icon: '🐰' }],
+        moves: 30,
+        rainbowChance: 0.15,
+        intro: {
+            title: 'Финал! 🎉',
+            tip: 'Последний уровень! Освободи зверушек и радуйся победе!'
+        }
+    }
+];
+
+// ============================================
+// СОСТОЯНИЕ ИГРЫ
+// ============================================
+
+let canvas, ctx;
+let gameState = {
+    screen: 'start', // start, levels, playing
+    currentLevel: 0,
+    unlockedLevels: 1,
+    levelStars: {},
+    
+    // Игровое поле
+    grid: [],
+    cols: 9,
+    rows: 0,
+    cellSize: 42,
+    offsetX: 0,
+    offsetY: 20,
+    
+    // Выстрел
+    currentYarn: null,
+    nextYarn: null,
+    isAiming: false,
+    aimAngle: Math.PI / 2,
+    
+    // Прогресс
+    moves: 0,
+    maxMoves: 20,
+    goals: [],
+    progress: {},
+    
+    // Анимации
+    fallingYarns: [],
+    particles: [],
+    isAnimating: false,
+    
+    // Пауза
+    isPaused: false
+};
+
+// ============================================
+// ЗВУКОВАЯ СИСТЕМА
+// ============================================
+
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+// Мягкий звук выстрела — "туп"
+function playShootSound() {
+    if (!audioCtx) return;
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.1);
+    osc.type = 'sine';
+    
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.15);
+}
+
+// Мягкий звук совпадения — "пуфф"
+function playMatchSound() {
+    if (!audioCtx) return;
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.2);
+    
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+    
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+    
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.25);
+}
+
+// Звук обвала — серия мягких "пум"
+function playDropSound(count) {
+    if (!audioCtx) return;
+    
+    const drops = Math.min(count, 5); // максимум 5 звуков
+    
+    for (let i = 0; i < drops; i++) {
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150 + i * 30, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.15);
+            
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.2);
+        }, i * 80);
+    }
+}
+
+// Радостный звук победы
+function playWinSound() {
+    if (!audioCtx) return;
+    
+    const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+    
+    notes.forEach((freq, i) => {
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.3);
+        }, i * 150);
+    });
+}
+
+// Звук освобождения зверушки — милый "пинг"
+function playAnimalSound() {
+    if (!audioCtx) return;
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(1000, audioCtx.currentTime + 0.1);
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.2);
+    
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+    
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.4);
+}
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================
+
+function init() {
+    canvas = document.getElementById('game-canvas');
+    ctx = canvas.getContext('2d');
+    
+    // Загружаем прогресс
+    loadProgress();
+    
+    // Настраиваем canvas
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // События
+    setupEvents();
+    
+    // Рендер стартового экрана
+    showScreen('start');
+    
+    // Игровой цикл
+    requestAnimationFrame(gameLoop);
+}
+
+function resizeCanvas() {
+    const container = document.getElementById('game-field');
+    const width = Math.min(420, window.innerWidth - 30);
+    const height = Math.min(500, window.innerHeight - 250);
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Пересчитываем размер ячейки
+    gameState.cellSize = Math.floor(width / (gameState.cols + 0.5));
+    gameState.offsetX = (width - gameState.cols * gameState.cellSize) / 2;
+}
+
+function loadProgress() {
+    const saved = localStorage.getItem('sheepGame');
+    if (saved) {
+        const data = JSON.parse(saved);
+        gameState.unlockedLevels = data.unlockedLevels || 1;
+        gameState.levelStars = data.levelStars || {};
+    }
+}
+
+function saveProgress() {
+    localStorage.setItem('sheepGame', JSON.stringify({
+        unlockedLevels: gameState.unlockedLevels,
+        levelStars: gameState.levelStars
+    }));
+}
+
+// ============================================
+// ЭКРАНЫ
+// ============================================
+
+function showScreen(screen) {
+    gameState.screen = screen;
+    
+    document.getElementById('start-screen').classList.toggle('hidden', screen !== 'start');
+    document.getElementById('level-select').classList.toggle('hidden', screen !== 'levels');
+    document.getElementById('game-container').style.display = screen === 'playing' ? 'block' : 'none';
+    
+    if (screen === 'levels') {
+        renderLevelSelect();
+    }
+}
+
+function renderLevelSelect() {
+    const grid = document.getElementById('levels-grid');
+    grid.innerHTML = '';
+    
+    for (let i = 0; i < LEVELS.length; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'level-btn';
+        btn.textContent = i + 1;
+        
+        if (i < gameState.unlockedLevels) {
+            btn.classList.add(gameState.levelStars[i] ? 'completed' : 'unlocked');
+            btn.onclick = () => showLevelIntro(i);
+            
+            if (gameState.levelStars[i]) {
+                const stars = document.createElement('span');
+                stars.className = 'stars';
+                stars.textContent = '⭐'.repeat(gameState.levelStars[i]);
+                btn.appendChild(stars);
+            }
+        } else {
+            btn.classList.add('locked');
+            btn.textContent = '🔒';
+        }
+        
+        grid.appendChild(btn);
+    }
+}
+
+// Показать описание уровня перед началом
+function showLevelIntro(levelIndex) {
+    const level = LEVELS[levelIndex];
+    const intro = level.intro || {};
+    
+    // Номер уровня
+    document.getElementById('intro-level-num').textContent = `Уровень ${levelIndex + 1}`;
+    
+    // Заголовок
+    document.getElementById('intro-title').textContent = intro.title || 'Вперёд!';
+    
+    // Цели уровня
+    const goalsEl = document.getElementById('intro-goals');
+    goalsEl.innerHTML = '';
+    level.goals.forEach(goal => {
+        const div = document.createElement('div');
+        div.className = 'intro-goal';
+        div.innerHTML = `
+            <span class="intro-goal-icon">${goal.icon}</span>
+            <span class="intro-goal-text">${GOAL_DESCRIPTIONS[goal.type] || goal.type}: ${goal.count}</span>
+        `;
+        goalsEl.appendChild(div);
+    });
+    
+    // Добавляем ходы
+    const movesDiv = document.createElement('div');
+    movesDiv.className = 'intro-goal';
+    movesDiv.innerHTML = `
+        <span class="intro-goal-icon">🎯</span>
+        <span class="intro-goal-text">Ходов: ${level.moves}</span>
+    `;
+    goalsEl.appendChild(movesDiv);
+    
+    // Подсказка
+    document.getElementById('intro-tip').textContent = intro.tip || '';
+    
+    // Новые механики
+    const newEl = document.getElementById('intro-new');
+    newEl.innerHTML = '';
+    if (intro.newMechanics && intro.newMechanics.length > 0) {
+        intro.newMechanics.forEach(mechanic => {
+            const info = MECHANIC_DESCRIPTIONS[mechanic];
+            if (info) {
+                const div = document.createElement('div');
+                div.className = 'new-mechanic';
+                div.innerHTML = `
+                    <span class="new-mechanic-icon">${info.icon}</span>
+                    <div class="new-mechanic-text">
+                        <div class="new-mechanic-title">Новое: ${info.title}</div>
+                        <div class="new-mechanic-desc">${info.desc}</div>
+                    </div>
+                `;
+                newEl.appendChild(div);
+            }
+        });
+    }
+    
+    // Запоминаем какой уровень запускать
+    gameState.pendingLevel = levelIndex;
+    
+    // Показываем модалку
+    document.getElementById('level-intro-modal').classList.add('active');
+}
+
+// ============================================
+// УРОВЕНЬ
+// ============================================
+
+function startLevel(levelIndex) {
+    gameState.currentLevel = levelIndex;
+    const level = LEVELS[levelIndex];
+    
+    // ВАЖНО: сброс состояния анимации и паузы
+    gameState.isAnimating = false;
+    gameState.isPaused = false;
+    gameState.isAiming = false;
+    gameState.aimAngle = Math.PI / 2;
+    gameState.levelEnded = false;  // сброс флага окончания уровня
+    
+    // Инициализация
+    gameState.rows = level.rows;
+    gameState.maxMoves = level.moves;
+    gameState.moves = 0;
+    gameState.goals = JSON.parse(JSON.stringify(level.goals));
+    gameState.progress = {};
+    gameState.goals.forEach(g => gameState.progress[g.type] = 0);
+    
+    // Создаём поле
+    createGrid(level);
+    
+    // Первые клубки для выстрела
+    gameState.currentYarn = createShootYarn(level);
+    gameState.nextYarn = createShootYarn(level);
+    
+    // Сброс UI
+    updateAimLine(0);
+    updateUI();
+    showScreen('playing');
+}
+
+function createGrid(level) {
+    gameState.grid = [];
+    
+    for (let row = 0; row < level.rows; row++) {
+        const rowArr = [];
+        const offset = row % 2 === 1 ? 0.5 : 0;
+        const colCount = row % 2 === 1 ? gameState.cols - 1 : gameState.cols;
+        
+        for (let col = 0; col < colCount; col++) {
+            const color = level.colors[Math.floor(Math.random() * level.colors.length)];
+            rowArr.push({
+                color: color,
+                type: 'normal',
+                x: (col + offset) * gameState.cellSize + gameState.offsetX + gameState.cellSize / 2,
+                y: row * gameState.cellSize * 0.866 + gameState.offsetY + gameState.cellSize / 2,
+                row: row,
+                col: col,
+                iceHits: 0,
+                visible: true,
+                fogHidden: false
+            });
+        }
+        gameState.grid.push(rowArr);
+    }
+    
+    // Добавляем специальные объекты
+    if (level.specials) {
+        level.specials.forEach(spec => {
+            for (let i = 0; i < spec.count; i++) {
+                placeSpecial(spec.type);
+            }
+        });
+    }
+}
+
+function placeSpecial(type) {
+    const attempts = 50;
+    for (let i = 0; i < attempts; i++) {
+        const row = Math.floor(Math.random() * gameState.grid.length);
+        const col = Math.floor(Math.random() * gameState.grid[row].length);
+        const yarn = gameState.grid[row][col];
+        
+        if (yarn && yarn.type === 'normal') {
+            yarn.type = type;
+            if (type === 'ice') yarn.iceHits = 0;
+            return;
+        }
+    }
+}
+
+function createShootYarn(level) {
+    let type = 'normal';
+    let color = level.colors[Math.floor(Math.random() * level.colors.length)];
+    
+    if (level.rainbowChance && Math.random() < level.rainbowChance) {
+        type = 'rainbow';
+        color = null;
+    }
+    
+    return { color, type };
+}
+
+// ============================================
+// ФИЗИКА / ВЫСТРЕЛ
+// ============================================
+
+function shoot(angle) {
+    if (gameState.isAnimating || gameState.isPaused) return;
+    
+    const yarn = gameState.currentYarn;
+    const startX = canvas.width / 2;
+    const startY = canvas.height + 30;
+    
+    // Симуляция полёта
+    let x = startX;
+    let y = startY;
+    const speed = 15;
+    const dx = Math.cos(angle) * speed;
+    const dy = -Math.sin(angle) * speed;
+    
+    // Находим точку столкновения
+    let collision = null;
+    for (let step = 0; step < 200 && !collision; step++) {
+        x += dx;
+        y += dy;
+        
+        // Отражение от стен
+        if (x < gameState.cellSize / 2) {
+            x = gameState.cellSize / 2;
+        }
+        if (x > canvas.width - gameState.cellSize / 2) {
+            x = canvas.width - gameState.cellSize / 2;
+        }
+        
+        // Верхняя граница
+        if (y < gameState.cellSize / 2) {
+            collision = { x, y, hitTop: true };
+            break;
+        }
+        
+        // Проверка столкновения с клубками
+        for (let row = 0; row < gameState.grid.length; row++) {
+            for (let col = 0; col < gameState.grid[row].length; col++) {
+                const target = gameState.grid[row][col];
+                if (!target || !target.visible) continue;
+                
+                const dist = Math.hypot(x - target.x, y - target.y);
+                if (dist < gameState.cellSize * 0.9) {
+                    collision = { x, y, target, row, col };
+                    break;
+                }
+            }
+            if (collision) break;
+        }
+    }
+    
+    if (collision) {
+        // Анимация полёта
+        animateShot(startX, startY, collision.x, collision.y, yarn, () => {
+            // Размещаем клубок
+            placeYarn(collision, yarn);
+        });
+    }
+    
+    // Следующий клубок
+    gameState.currentYarn = gameState.nextYarn;
+    gameState.nextYarn = createShootYarn(LEVELS[gameState.currentLevel]);
+    gameState.moves++;
+    
+    updateUI();
+}
+
+function animateShot(startX, startY, endX, endY, yarn, callback) {
+    gameState.isAnimating = true;
+    
+    const duration = 200;
+    const startTime = Date.now();
+    
+    function animate() {
+        const elapsed = Date.now() - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        
+        const x = startX + (endX - startX) * t;
+        const y = startY + (endY - startY) * t;
+        
+        // Рисуем летящий клубок
+        yarn.animX = x;
+        yarn.animY = y;
+        
+        if (t < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            delete yarn.animX;
+            delete yarn.animY;
+            gameState.isAnimating = false;
+            callback();
+        }
+    }
+    
+    animate();
+}
+
+function placeYarn(collision, yarn) {
+    // Находим ближайшую свободную позицию
+    const pos = findNearestEmpty(collision.x, collision.y);
+    
+    if (!pos) {
+        // Игра проиграна — поле заполнено
+        checkLose();
+        return;
+    }
+    
+    // Создаём новый клубок
+    const newYarn = {
+        color: yarn.color,
+        type: yarn.type,
+        x: pos.x,
+        y: pos.y,
+        row: pos.row,
+        col: pos.col,
+        visible: true,
+        iceHits: 0
+    };
+    
+    // Добавляем в сетку
+    if (!gameState.grid[pos.row]) {
+        gameState.grid[pos.row] = [];
+    }
+    gameState.grid[pos.row][pos.col] = newYarn;
+    
+    // Проверяем совпадения
+    setTimeout(() => checkMatches(newYarn), 50);
+}
+
+function findNearestEmpty(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+    
+    // Проверяем все возможные позиции
+    for (let row = 0; row < 15; row++) {
+        const offset = row % 2 === 1 ? 0.5 : 0;
+        const colCount = row % 2 === 1 ? gameState.cols - 1 : gameState.cols;
+        
+        for (let col = 0; col < colCount; col++) {
+            const px = (col + offset) * gameState.cellSize + gameState.offsetX + gameState.cellSize / 2;
+            const py = row * gameState.cellSize * 0.866 + gameState.offsetY + gameState.cellSize / 2;
+            
+            // Проверяем, свободна ли позиция
+            const existing = gameState.grid[row]?.[col];
+            if (existing && existing.visible) continue;
+            
+            // Должна быть рядом с чем-то или на верхнем ряду
+            const hasNeighbor = row === 0 || getNeighbors(row, col).some(n => n && n.visible);
+            if (!hasNeighbor) continue;
+            
+            const dist = Math.hypot(x - px, y - py);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = { row, col, x: px, y: py };
+            }
+        }
+    }
+    
+    return best;
+}
+
+function getNeighbors(row, col) {
+    const neighbors = [];
+    const isOdd = row % 2 === 1;
+    
+    // Смещения для соседей в гексагональной сетке
+    const offsets = isOdd ? [
+        [-1, 0], [-1, 1],
+        [0, -1], [0, 1],
+        [1, 0], [1, 1]
+    ] : [
+        [-1, -1], [-1, 0],
+        [0, -1], [0, 1],
+        [1, -1], [1, 0]
+    ];
+    
+    for (const [dr, dc] of offsets) {
+        const r = row + dr;
+        const c = col + dc;
+        if (gameState.grid[r]?.[c]) {
+            neighbors.push(gameState.grid[r][c]);
+        }
+    }
+    
+    return neighbors;
+}
+
+// ============================================
+// СОВПАДЕНИЯ И ОБВАЛЫ
+// ============================================
+
+function checkMatches(startYarn) {
+    // Находим все связанные клубки того же цвета
+    const matchColor = startYarn.type === 'rainbow' ? null : startYarn.color;
+    const matched = new Set();
+    const toCheck = [startYarn];
+    
+    while (toCheck.length > 0) {
+        const yarn = toCheck.pop();
+        if (matched.has(yarn)) continue;
+        
+        // Радужный совпадает с любым
+        if (matchColor === null || yarn.color === matchColor || yarn.type === 'rainbow') {
+            matched.add(yarn);
+            
+            const neighbors = getNeighbors(yarn.row, yarn.col);
+            neighbors.forEach(n => {
+                if (n && n.visible && !matched.has(n)) {
+                    toCheck.push(n);
+                }
+            });
+        }
+    }
+    
+    if (matched.size >= 3) {
+        // Удаляем совпавшие
+        removeMatched(Array.from(matched));
+    } else {
+        // Проверяем условия проигрыша
+        checkLose();
+    }
+}
+
+function removeMatched(yarns) {
+    gameState.isAnimating = true;
+    
+    // Звук совпадения
+    playMatchSound();
+    
+    // Обрабатываем специальные типы
+    yarns.forEach(yarn => {
+        // Бомба
+        if (yarn.type === 'bomb') {
+            const neighbors = getNeighbors(yarn.row, yarn.col);
+            neighbors.forEach(n => {
+                if (n && n.visible && !yarns.includes(n)) {
+                    yarns.push(n);
+                }
+            });
+            gameState.progress.bomb = (gameState.progress.bomb || 0) + 1;
+        }
+        
+        // Зверушка
+        if (yarn.type === 'animal') {
+            gameState.progress.animal = (gameState.progress.animal || 0) + 1;
+            triggerSheepReaction('clap');
+            playAnimalSound();
+        }
+        
+        // Лёд
+        if (yarn.type === 'ice') {
+            yarn.iceHits++;
+            if (yarn.iceHits < 2) {
+                // Не удаляем, только повреждаем
+                yarns.splice(yarns.indexOf(yarn), 1);
+            } else {
+                gameState.progress.ice = (gameState.progress.ice || 0) + 1;
+            }
+        }
+        
+        // Липучка
+        if (yarn.type === 'sticky') {
+            gameState.progress.sticky = (gameState.progress.sticky || 0) + 1;
+        }
+    });
+    
+    // Эффект "распушения"
+    yarns.forEach(yarn => {
+        createPuffEffect(yarn.x, yarn.y, yarn.color);
+        yarn.visible = false;
+    });
+    
+    // Подсчёт
+    gameState.progress.match = (gameState.progress.match || 0) + yarns.length;
+    
+    // Реакция овечки
+    if (yarns.length >= 5) {
+        triggerSheepReaction('happy');
+    } else if (yarns.length >= 8) {
+        triggerSheepReaction('spin');
+    }
+    
+    // Проверяем обвалы
+    setTimeout(() => {
+        checkFloating();
+    }, 300);
+}
+
+function checkFloating() {
+    // Помечаем все связанные с верхом
+    const connected = new Set();
+    
+    // Начинаем с верхнего ряда
+    if (gameState.grid[0]) {
+        gameState.grid[0].forEach(yarn => {
+            if (yarn && yarn.visible) {
+                markConnected(yarn, connected);
+            }
+        });
+    }
+    
+    // Все не связанные — падают
+    const falling = [];
+    for (let row = 0; row < gameState.grid.length; row++) {
+        for (let col = 0; col < (gameState.grid[row]?.length || 0); col++) {
+            const yarn = gameState.grid[row][col];
+            if (yarn && yarn.visible && !connected.has(yarn)) {
+                // Проверяем липучки — они удерживают
+                if (yarn.type === 'sticky') continue;
+                const neighbors = getNeighbors(yarn.row, yarn.col);
+                if (neighbors.some(n => n && n.visible && n.type === 'sticky')) continue;
+                
+                falling.push(yarn);
+            }
+        }
+    }
+    
+    if (falling.length > 0) {
+        // Звук обвала
+        playDropSound(falling.length);
+        
+        // Анимация падения
+        animateFalling(falling);
+        
+        // Счётчик обвалов
+        gameState.progress.drop = (gameState.progress.drop || 0) + falling.length;
+        
+        // Реакция овечки на большой обвал
+        if (falling.length >= 5) {
+            triggerSheepReaction('happy');
+        }
+    } else {
+        gameState.isAnimating = false;
+        checkWin();
+        updateUI();
+    }
+}
+
+function markConnected(yarn, connected) {
+    if (connected.has(yarn)) return;
+    connected.add(yarn);
+    
+    const neighbors = getNeighbors(yarn.row, yarn.col);
+    neighbors.forEach(n => {
+        if (n && n.visible && !connected.has(n)) {
+            markConnected(n, connected);
+        }
+    });
+}
+
+function animateFalling(yarns) {
+    // Засчитываем специальные типы при падении (обвале)
+    // При обвале лёд/зверушки/липучки засчитываются сразу — не нужно попадать дважды!
+    yarns.forEach(yarn => {
+        if (yarn.type === 'ice') {
+            gameState.progress.ice = (gameState.progress.ice || 0) + 1;
+        }
+        if (yarn.type === 'animal') {
+            gameState.progress.animal = (gameState.progress.animal || 0) + 1;
+            triggerSheepReaction('clap');
+            playAnimalSound();
+        }
+        if (yarn.type === 'sticky') {
+            gameState.progress.sticky = (gameState.progress.sticky || 0) + 1;
+        }
+        if (yarn.type === 'bomb') {
+            gameState.progress.bomb = (gameState.progress.bomb || 0) + 1;
+        }
+    });
+    
+    yarns.forEach(yarn => {
+        yarn.falling = true;
+        yarn.fallY = yarn.y;
+        yarn.fallVel = 0;
+    });
+    
+    function animate() {
+        let stillFalling = false;
+        
+        yarns.forEach(yarn => {
+            if (yarn.falling) {
+                yarn.fallVel += 0.8; // гравитация
+                yarn.fallY += yarn.fallVel;
+                
+                if (yarn.fallY < canvas.height + 100) {
+                    stillFalling = true;
+                } else {
+                    yarn.visible = false;
+                    yarn.falling = false;
+                }
+            }
+        });
+        
+        if (stillFalling) {
+            requestAnimationFrame(animate);
+        } else {
+            // Возможны цепные реакции — проверяем ещё раз
+            setTimeout(() => {
+                gameState.isAnimating = false;
+                checkWin();
+                updateUI();
+            }, 100);
+        }
+    }
+    
+    animate();
+}
+
+// ============================================
+// ЭФФЕКТЫ
+// ============================================
+
+function createPuffEffect(x, y, color) {
+    const colorData = COLORS[color] || COLORS.cream;
+    
+    // Волокна
+    for (let i = 0; i < 12; i++) {
+        const fiber = document.createElement('div');
+        fiber.className = 'fiber';
+        fiber.style.left = x + 'px';
+        fiber.style.top = y + 'px';
+        fiber.style.backgroundColor = colorData.fill;
+        
+        const angle = (Math.PI * 2 / 12) * i;
+        const dist = 30 + Math.random() * 40;
+        fiber.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+        fiber.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+        fiber.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+        
+        document.getElementById('game-container').appendChild(fiber);
+        setTimeout(() => fiber.remove(), 1200);
+    }
+}
+
+function triggerSheepReaction(type) {
+    const sheep = document.getElementById('sheep');
+    sheep.classList.remove('happy', 'spin', 'clap');
+    
+    // Небольшая задержка для сброса анимации
+    setTimeout(() => {
+        sheep.classList.add(type);
+        setTimeout(() => sheep.classList.remove(type), 800);
+    }, 50);
+}
+
+// ============================================
+// ПРОВЕРКА ПОБЕДЫ / ПОРАЖЕНИЯ
+// ============================================
+
+function checkWinOrLose() {
+    const allGoalsMet = gameState.goals.every(goal => {
+        return (gameState.progress[goal.type] || 0) >= goal.count;
+    });
+    
+    if (allGoalsMet) {
+        // Победа!
+        const movesLeft = gameState.maxMoves - gameState.moves;
+        let stars = 1;
+        if (movesLeft >= gameState.maxMoves * 0.3) stars = 2;
+        if (movesLeft >= gameState.maxMoves * 0.5) stars = 3;
+        
+        gameState.levelStars[gameState.currentLevel] = Math.max(
+            gameState.levelStars[gameState.currentLevel] || 0,
+            stars
+        );
+        
+        if (gameState.currentLevel + 1 >= gameState.unlockedLevels) {
+            gameState.unlockedLevels = Math.min(gameState.currentLevel + 2, LEVELS.length);
+        }
+        
+        saveProgress();
+        showWinModal(stars);
+        return;
+    }
+    
+    // Проверяем проигрыш — ходы закончились
+    if (gameState.moves >= gameState.maxMoves) {
+        showLoseModal();
+        return;
+    }
+    
+    // Проверяем, не переполнено ли поле
+    const lastRow = gameState.grid[gameState.grid.length - 1];
+    const overflow = lastRow?.some(y => y && y.visible && y.y > canvas.height - 50);
+    
+    if (overflow) {
+        showLoseModal();
+    }
+}
+
+// Алиасы для совместимости
+function checkWin() {
+    checkWinOrLose();
+}
+
+function checkLose() {
+    checkWinOrLose();
+}
+
+function showWinModal(stars) {
+    // Предотвращаем повторный показ
+    if (gameState.levelEnded) return;
+    gameState.levelEnded = true;
+    
+    playWinSound();
+    
+    const modal = document.getElementById('win-modal');
+    document.getElementById('win-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    modal.classList.add('active');
+}
+
+function showLoseModal() {
+    // Предотвращаем повторный показ
+    if (gameState.levelEnded) return;
+    gameState.levelEnded = true;
+    
+    document.getElementById('lose-modal').classList.add('active');
+}
+
+// ============================================
+// UI
+// ============================================
+
+function updateUI() {
+    // Уровень
+    document.getElementById('level-num').textContent = `Уровень ${gameState.currentLevel + 1}`;
+    
+    // Цели
+    const goalsEl = document.getElementById('goals');
+    goalsEl.innerHTML = '';
+    
+    gameState.goals.forEach(goal => {
+        const current = gameState.progress[goal.type] || 0;
+        const completed = current >= goal.count;
+        
+        const div = document.createElement('div');
+        div.className = 'goal-item' + (completed ? ' completed' : '');
+        div.innerHTML = `
+            <span class="goal-icon">${goal.icon}</span>
+            <span class="goal-count">${current}/${goal.count}</span>
+        `;
+        goalsEl.appendChild(div);
+    });
+    
+    // Ходы
+    const movesGoal = document.createElement('div');
+    movesGoal.className = 'goal-item';
+    movesGoal.innerHTML = `
+        <span class="goal-icon">🎯</span>
+        <span class="goal-count">${gameState.maxMoves - gameState.moves}</span>
+    `;
+    goalsEl.appendChild(movesGoal);
+    
+    // Текущий клубок
+    updateYarnPreview();
+    
+    // Овечка беспокоится при малом количестве ходов
+    if (gameState.maxMoves - gameState.moves <= 3) {
+        document.getElementById('sheep').style.filter = 'hue-rotate(-20deg)';
+    } else {
+        document.getElementById('sheep').style.filter = '';
+    }
+}
+
+function updateYarnPreview() {
+    const currentEl = document.getElementById('current-yarn');
+    const nextEl = document.getElementById('next-yarn');
+    
+    if (gameState.currentYarn) {
+        const colorData = COLORS[gameState.currentYarn.color];
+        if (gameState.currentYarn.type === 'rainbow') {
+            currentEl.style.background = 'linear-gradient(135deg, #FFB5B5, #FFCBA4, #FFF5E1, #98D8C8, #A8D8EA, #C9B1FF)';
+            currentEl.innerHTML = '<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;">🌈</span>';
+        } else {
+            currentEl.style.background = `linear-gradient(135deg, ${lightenColor(colorData.fill, 20)} 0%, ${colorData.fill} 50%, ${colorData.stroke} 100%)`;
+            currentEl.innerHTML = '';
+        }
+    }
+    
+    if (gameState.nextYarn) {
+        const colorData = COLORS[gameState.nextYarn.color];
+        if (gameState.nextYarn.type === 'rainbow') {
+            nextEl.style.background = 'linear-gradient(135deg, #FFB5B5, #FFCBA4, #FFF5E1, #98D8C8, #A8D8EA, #C9B1FF)';
+            nextEl.innerHTML = '<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;">🌈</span>';
+        } else {
+            nextEl.style.background = `linear-gradient(135deg, ${lightenColor(colorData.fill, 20)} 0%, ${colorData.fill} 50%, ${colorData.stroke} 100%)`;
+            nextEl.innerHTML = '';
+        }
+    }
+}
+
+// ============================================
+// СОБЫТИЯ
+// ============================================
+
+function setupEvents() {
+    // Стартовый экран — инициализируем аудио при первом клике
+    document.getElementById('start-btn').onclick = () => {
+        initAudio();
+        showScreen('levels');
+    };
+    
+    // Кнопка "Играть!" в описании уровня
+    document.getElementById('start-level-btn').onclick = () => {
+        document.getElementById('level-intro-modal').classList.remove('active');
+        if (gameState.pendingLevel !== undefined) {
+            startLevel(gameState.pendingLevel);
+            delete gameState.pendingLevel;
+        }
+    };
+    
+    // Закрытие описания уровня — кнопка "Назад"
+    document.getElementById('intro-back-btn').onclick = () => {
+        document.getElementById('level-intro-modal').classList.remove('active');
+        delete gameState.pendingLevel;
+    };
+    
+    // Закрытие описания уровня — крестик
+    document.getElementById('intro-close-btn').onclick = () => {
+        document.getElementById('level-intro-modal').classList.remove('active');
+        delete gameState.pendingLevel;
+    };
+    
+    // Закрытие описания уровня — клик на фон (вне модалки)
+    document.getElementById('level-intro-modal').onclick = (e) => {
+        if (e.target.id === 'level-intro-modal') {
+            document.getElementById('level-intro-modal').classList.remove('active');
+            delete gameState.pendingLevel;
+        }
+    };
+    
+    // Пауза
+    document.getElementById('pause-btn').onclick = () => {
+        gameState.isPaused = true;
+        document.getElementById('pause-modal').classList.add('active');
+    };
+    
+    document.getElementById('resume-btn').onclick = () => {
+        gameState.isPaused = false;
+        document.getElementById('pause-modal').classList.remove('active');
+    };
+    
+    document.getElementById('menu-btn').onclick = () => {
+        gameState.isPaused = false;
+        document.getElementById('pause-modal').classList.remove('active');
+        showScreen('levels');
+    };
+    
+    // Победа
+    document.getElementById('next-level-btn').onclick = () => {
+        document.getElementById('win-modal').classList.remove('active');
+        if (gameState.currentLevel + 1 < LEVELS.length) {
+            showLevelIntro(gameState.currentLevel + 1);
+        } else {
+            showScreen('levels');
+        }
+    };
+    
+    document.getElementById('win-menu-btn').onclick = () => {
+        document.getElementById('win-modal').classList.remove('active');
+        showScreen('levels');
+    };
+    
+    // Проигрыш
+    document.getElementById('retry-btn').onclick = () => {
+        document.getElementById('lose-modal').classList.remove('active');
+        startLevel(gameState.currentLevel); // при retry сразу начинаем, без повторного intro
+    };
+    
+    document.getElementById('lose-menu-btn').onclick = () => {
+        document.getElementById('lose-modal').classList.remove('active');
+        showScreen('levels');
+    };
+    
+    // Прицеливание мышью
+    canvas.addEventListener('mousemove', handleAim);
+    canvas.addEventListener('touchmove', handleAimTouch, { passive: false });
+    
+    canvas.addEventListener('click', handleShoot);
+    canvas.addEventListener('touchend', handleShootTouch);
+}
+
+function handleAim(e) {
+    if (gameState.isPaused || gameState.isAnimating) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Вычисляем угол от центра низа к курсору
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height + 30;
+    
+    let angle = Math.atan2(centerY - y, x - centerX);
+    
+    // Ограничиваем угол
+    angle = Math.max(0.2, Math.min(Math.PI - 0.2, angle));
+    
+    gameState.aimAngle = angle;
+    gameState.isAiming = true;
+    
+    // Обновляем линию прицеливания
+    updateAimLine(angle);
+}
+
+function handleAimTouch(e) {
+    e.preventDefault();
+    if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        handleAim({ clientX: touch.clientX, clientY: touch.clientY });
+    }
+}
+
+function handleShoot(e) {
+    if (gameState.isPaused || gameState.isAnimating) return;
+    if (gameState.moves >= gameState.maxMoves) return;
+    
+    playShootSound();
+    shoot(gameState.aimAngle);
+    gameState.isAiming = false;
+    updateAimLine(0);
+}
+
+function handleShootTouch(e) {
+    handleShoot(e);
+}
+
+function updateAimLine(angle) {
+    const line = document.getElementById('aim-line');
+    
+    if (angle === 0) {
+        line.style.height = '0';
+        return;
+    }
+    
+    const length = 200;
+    const rotation = -(angle * 180 / Math.PI - 90);
+    
+    line.style.height = length + 'px';
+    line.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+}
+
+// ============================================
+// РЕНДЕР
+// ============================================
+
+function gameLoop() {
+    if (gameState.screen === 'playing') {
+        render();
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Рисуем клубки
+    for (let row = 0; row < gameState.grid.length; row++) {
+        for (let col = 0; col < (gameState.grid[row]?.length || 0); col++) {
+            const yarn = gameState.grid[row][col];
+            if (!yarn || !yarn.visible) continue;
+            
+            const x = yarn.falling ? yarn.x : yarn.x;
+            const y = yarn.falling ? yarn.fallY : yarn.y;
+            
+            drawYarn(x, y, yarn);
+        }
+    }
+    
+    // Летящий клубок
+    if (gameState.currentYarn?.animX !== undefined) {
+        drawShootingYarn(gameState.currentYarn);
+    }
+}
+
+function drawYarn(x, y, yarn) {
+    const size = gameState.cellSize * 0.45;
+    const colorData = COLORS[yarn.color] || COLORS.cream;
+    
+    ctx.save();
+    
+    // Тень
+    ctx.beginPath();
+    ctx.arc(x + 2, y + 2, size, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.fill();
+    
+    // Основной круг
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    
+    // Градиент для объёма
+    const gradient = ctx.createRadialGradient(x - size * 0.3, y - size * 0.3, 0, x, y, size);
+    gradient.addColorStop(0, lightenColor(colorData.fill, 30));
+    gradient.addColorStop(0.7, colorData.fill);
+    gradient.addColorStop(1, colorData.stroke);
+    
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    // Текстура ниток (простые линии)
+    ctx.strokeStyle = colorData.stroke;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.3;
+    
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        const startAngle = (Math.PI * 2 / 5) * i + yarn.row * 0.5;
+        ctx.arc(x, y, size * 0.6, startAngle, startAngle + Math.PI * 0.8);
+        ctx.stroke();
+    }
+    
+    ctx.globalAlpha = 1;
+    
+    // Специальные типы
+    if (yarn.type !== 'normal') {
+        ctx.font = `${size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        let emoji = SPECIAL_TYPES[yarn.type]?.emoji || '';
+        
+        // Лёд — показываем повреждение
+        if (yarn.type === 'ice' && yarn.iceHits > 0) {
+            ctx.globalAlpha = 0.6;
+        }
+        
+        // Туман — скрывает
+        if (yarn.type === 'fog') {
+            ctx.globalAlpha = 0.7;
+        }
+        
+        if (emoji) {
+            ctx.fillText(emoji, x, y);
+        }
+        
+        ctx.globalAlpha = 1;
+    }
+    
+    ctx.restore();
+}
+
+function drawShootingYarn(yarn) {
+    const size = gameState.cellSize * 0.45;
+    const colorData = COLORS[yarn.color] || COLORS.cream;
+    
+    ctx.save();
+    
+    ctx.beginPath();
+    ctx.arc(yarn.animX, yarn.animY, size, 0, Math.PI * 2);
+    
+    const gradient = ctx.createRadialGradient(
+        yarn.animX - size * 0.3, yarn.animY - size * 0.3, 0,
+        yarn.animX, yarn.animY, size
+    );
+    gradient.addColorStop(0, lightenColor(colorData.fill, 30));
+    gradient.addColorStop(1, colorData.fill);
+    
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    if (yarn.type === 'rainbow') {
+        ctx.font = `${size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🌈', yarn.animX, yarn.animY);
+    }
+    
+    ctx.restore();
+}
+
+function lightenColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return `rgb(${R}, ${G}, ${B})`;
+}
+
+// ============================================
+// СТАРТ
+// ============================================
+
+window.onload = init;
+</script>
+
+</body>
+</html>
